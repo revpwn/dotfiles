@@ -1,0 +1,80 @@
+-- lua/lazy/plugins/lsp.lua
+return {
+  {
+    "neovim/nvim-lspconfig",
+    dependencies = {
+      "williamboman/mason.nvim",
+      "williamboman/mason-lspconfig.nvim",
+      "hrsh7th/cmp-nvim-lsp",
+      "j-hui/fidget.nvim",
+    },
+    config = function()
+      local lspconfig = require("lspconfig")
+      local cmp_lsp    = require("cmp_nvim_lsp")
+
+      -- build capabilities for nvim-cmp
+      local capabilities = cmp_lsp.default_capabilities(
+        vim.lsp.protocol.make_client_capabilities()
+      )
+
+      -- common on_attach to map keys after LSP attaches to buffer
+      local on_attach = function(_, bufnr)
+        local map = vim.keymap.set
+        local opts = { buffer = bufnr, silent = true }
+
+        map("n", "gd", vim.lsp.buf.definition,        vim.tbl_extend("force", opts, { desc = "LSP: Go to Definition" }))
+        map("n", "gr", vim.lsp.buf.references,        vim.tbl_extend("force", opts, { desc = "LSP: References" }))
+        map("n", "K",  vim.lsp.buf.hover,              vim.tbl_extend("force", opts, { desc = "LSP: Hover Documentation" }))
+        map("n", "[d", vim.diagnostic.goto_prev,       vim.tbl_extend("force", opts, { desc = "LSP: Prev Diagnostic" }))
+        map("n", "]d", vim.diagnostic.goto_next,       vim.tbl_extend("force", opts, { desc = "LSP: Next Diagnostic" }))
+        map("n", "<leader>e", vim.diagnostic.open_float, vim.tbl_extend("force", opts, { desc = "LSP: Show Diagnostics" }))
+        map("n", "<leader>q", vim.diagnostic.setloclist, vim.tbl_extend("force", opts, { desc = "LSP: Quickfix Diagnostics" }))
+      end
+
+      -- install and configure mason + progress UI
+      require("fidget").setup({})
+      require("mason").setup()
+
+      -- ensure these servers are installed, then set them up
+      require("mason-lspconfig").setup({
+        ensure_installed = { "clangd", "pyright", "bashls", "lua_ls" },
+        handlers = {
+          -- default handler for all servers
+          function(server_name)
+            lspconfig[server_name].setup({
+              capabilities = capabilities,
+              on_attach    = on_attach,
+            })
+          end,
+          -- custom settings for lua_ls
+          lua_ls = function()
+            lspconfig.lua_ls.setup({
+              capabilities = capabilities,
+              on_attach    = on_attach,
+              settings = {
+                Lua = {
+                  runtime = { version = "LuaJIT" },
+                  diagnostics = { globals = { "vim" } },
+                  workspace  = { library = vim.api.nvim_get_runtime_file("", true) },
+                },
+              },
+            })
+          end,
+        },
+      })
+
+      -- global diagnostic float config
+      vim.diagnostic.config({
+        float = {
+          border    = "rounded",
+          source    = "always",
+          header    = "",
+          prefix    = "",
+          focusable = false,
+          style     = "minimal",
+        },
+      })
+    end,
+  },
+}
+
